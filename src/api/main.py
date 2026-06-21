@@ -17,6 +17,7 @@ Then visit http://localhost:8000/docs for interactive Swagger UI.
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,51 @@ logger = logging.getLogger(__name__)
 MODEL_DIR = Path(__file__).resolve().parents[2] / "models"
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "processed"
 
+# --- Globals populated at startup ---
+_model = None
+_pipeline = None
+_explainer = None
+_train_baseline: Optional[pd.DataFrame] = None
+_decision_threshold = 0.5
+
+
+def _load_artifacts():
+    """Load model, feature pipeline, and explainer once at startup."""
+    global _model, _pipeline, _explainer, _train_baseline, _decision_threshold
+
+    model_path = MODEL_DIR / "logistic_regression.joblib"
+    pipeline_path = MODEL_DIR / "feature_pipeline.joblib"
+
+    if not model_path.exists() or not pipeline_path.exists():
+        logger.error(
+            "Model artifacts not found at %s. Run `python -m src.models.train` first.",
+            MODEL_DIR,
+        )
+        return
+
+    _model = joblib.load(model_path)
+    _pipeline = joblib.load(pipeline_path)
+
+    baseline_path = DATA_DIR / "train_baseline.csv"
+    if baseline_path.exists():
+        _train_baseline = pd.read_csv(baseline_path)
+        background = _pipeline.transform(_train_baseline)
+        _explainer = FraudExplainer(_model, _pipeline.feature_names(), background)
+
+    logger.info("Model artifacts loaded successfully.")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Runs once when the API starts up — replaces the deprecated
+    # @app.on_event("startup") pattern, which some FastAPI/Starlette
+    # versions no longer reliably fire before the first request
+    # (including under TestClient in pytest).
+    _load_artifacts()
+    yield
+    # (no shutdown cleanup needed)
+
+
 app = FastAPI(
     title="Fraud Detection API",
     description=(
@@ -41,14 +87,8 @@ app = FastAPI(
         "and drift monitoring. Built as a full MLOps demonstration project."
     ),
     version="1.0.0",
+    lifespan=lifespan,
 )
-
-# --- Globals populated at startup ---
-_model = None
-_pipeline = None
-_explainer = None
-_train_baseline: Optional[pd.DataFrame] = None
-_decision_threshold = 0.5
 
 
 class TransactionInput(BaseModel):
@@ -112,33 +152,6 @@ class ModelInfo(BaseModel):
     decision_threshold: float
     feature_count: int
     training_data_rows: Optional[int] = None
-
-
-@app.on_event("startup")
-def load_artifacts():
-    """Load model, feature pipeline, and explainer once at startup."""
-    global _model, _pipeline, _explainer, _train_baseline, _decision_threshold
-
-    model_path = MODEL_DIR / "logistic_regression.joblib"
-    pipeline_path = MODEL_DIR / "feature_pipeline.joblib"
-
-    if not model_path.exists() or not pipeline_path.exists():
-        logger.error(
-            "Model artifacts not found at %s. Run `python -m src.models.train` first.",
-            MODEL_DIR,
-        )
-        return
-
-    _model = joblib.load(model_path)
-    _pipeline = joblib.load(pipeline_path)
-
-    baseline_path = DATA_DIR / "train_baseline.csv"
-    if baseline_path.exists():
-        _train_baseline = pd.read_csv(baseline_path)
-        background = _pipeline.transform(_train_baseline)
-        _explainer = FraudExplainer(_model, _pipeline.feature_names(), background)
-
-    logger.info("Model artifacts loaded successfully.")
 
 
 @app.get("/health")
