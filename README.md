@@ -4,8 +4,6 @@ A complete, end-to-end fraud detection system — not a notebook with an accurac
 score, but the full pipeline a real team would build: training → tracking →
 serving → explainability → drift monitoring → CI/CD retraining triggers.
 
-**Live demo:** _add your Render URL here after deploying_
-**API docs:** _add your Render URL/docs here_
 
 ---
 
@@ -50,8 +48,8 @@ for the full writeup with numbers.
 
 ```
                  ┌─────────────┐
-                 │   Dataset    │  Kaggle creditcard.csv (or synthetic
-                 │  (raw CSV)   │  fallback with the same schema + injected drift)
+                 │   Dataset   │  Kaggle creditcard.csv (or synthetic
+                 │  (raw CSV)  │  fallback with the same schema + injected drift)
                  └──────┬──────┘
                         │ time-ordered split (not random — prevents leakage)
                         ▼
@@ -69,21 +67,21 @@ for the full writeup with numbers.
             ┌───────────┴───────────┐
             ▼                       ▼
    ┌─────────────────┐    ┌──────────────────┐
-   │   FastAPI        │    │ Streamlit         │
-   │   /predict        │    │ Monitoring         │
-   │   + SHAP explain  │    │ Dashboard          │
+   │   FastAPI       │    │ Streamlit        │
+   │   /predict      │    │ Monitoring       │
+   │  + SHAP explain │    │ Dashboard        │
    └─────────────────┘    └──────────────────┘
             │                       │
             └───────────┬───────────┘
                         ▼
               ┌──────────────────┐
-              │  Drift Detection  │  Population / Score / Conditional
-              │  (3 methods)      │  PSI + KS-test
+              │  Drift Detection │  Population / Score / Conditional
+              │  (3 methods)     │  PSI + KS-test
               └────────┬─────────┘
                         ▼
               ┌──────────────────┐
-              │  GitHub Actions   │  Scheduled drift check →
-              │  retrain trigger  │  auto-retrain if significant
+              │  GitHub Actions  │  Scheduled drift check →
+              │  retrain trigger │  auto-retrain if significant
               └──────────────────┘
 ```
 
