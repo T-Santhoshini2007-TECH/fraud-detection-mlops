@@ -72,12 +72,9 @@ def _load_artifacts():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Runs once when the API starts up — replaces the deprecated
-    # @app.on_event("startup") pattern, which some FastAPI/Starlette
-    # versions no longer reliably fire before the first request
-    # (including under TestClient in pytest).
+    # @app.on_event("startup") pattern.
     _load_artifacts()
     yield
-    # (no shutdown cleanup needed)
 
 
 app = FastAPI(
