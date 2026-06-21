@@ -1,0 +1,36 @@
+# Render Blueprint — deploy with "New + Blueprint" on render.com,
+# pointing at this repo. Creates both the API and the dashboard as
+# free-tier web services.
+#
+# IMPORTANT: Render's free tier builds from a Dockerfile but the model
+# must exist at build time (Render doesn't run docker-compose's trainer
+# step). Either:
+#   (a) commit models/*.joblib to the repo (small files, fine for a demo), or
+#   (b) add a build-time training step in render's build command below.
+# This blueprint uses option (b) so the repo doesn't need binary artifacts
+# committed.
+
+services:
+  - type: web
+    name: fraud-detection-api
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile.api
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    buildCommand: "" # training happens via preDeployCommand below
+    preDeployCommand: "python -m src.models.train"
+    healthCheckPath: /health
+
+  - type: web
+    name: fraud-detection-dashboard
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile.dashboard
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    preDeployCommand: "python -m src.models.train"

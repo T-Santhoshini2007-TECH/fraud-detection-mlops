@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+*.egg
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Data — real dataset is large and should not be committed;
+# synthetic fallback is generated on the fly.
+data/raw/creditcard.csv
+data/processed/*.csv
+
+# Model artifacts — regenerate via `python -m src.models.train`
+# (kept out of git so the repo stays lightweight; CI regenerates them)
+models/*.joblib
+models/*.csv
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Env files
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/

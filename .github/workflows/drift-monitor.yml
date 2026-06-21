@@ -1,0 +1,89 @@
+name: Drift Monitoring & Retrain Trigger
+
+# Demonstrates the "monitor production -> detect drift -> trigger retraining"
+# loop that's central to real MLOps systems. Runs on a schedule (simulating
+# a recurring production check) and can also be triggered manually.
+#
+# NOTE: this workflow checks drift against the bundled test_stream.csv as a
+# stand-in for "freshly arrived production data with confirmed labels".
+# In a real deployment, the data-fetch step would pull from your production
+# database / data warehouse instead.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"  # every Monday at 06:00 UTC
+  workflow_dispatch: {}    # allow manual trigger from the Actions tab
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    outputs:
+      should_retrain: ${{ steps.drift_check.outputs.should_retrain }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Train baseline model (if artifacts missing)
+        run: |
+          if [ ! -f models/logistic_regression.joblib ]; then
+            python -m src.models.train
+          fi
+
+      - name: Run drift check
+        id: drift_check
+        run: |
+          python -c "
+          import pandas as pd
+          from src.monitoring.drift import detect_conditional_drift, should_trigger_retrain
+
+          train_df = pd.read_csv('data/processed/train_baseline.csv')
+          test_df = pd.read_csv('models/test_stream.csv')
+          feature_names = [f'V{i}' for i in range(1, 29)] + ['Amount']
+
+          report = detect_conditional_drift(train_df, test_df, feature_names)
+          retrain = should_trigger_retrain(report)
+          print(f'Overall severity: {report.overall_severity}')
+          print(f'Should retrain: {retrain}')
+
+          with open('${GITHUB_OUTPUT}', 'a') as f:
+              f.write(f'should_retrain={str(retrain).lower()}\n')
+          "
+
+  retrain:
+    needs: check-drift
+    if: needs.check-drift.outputs.should_retrain == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Retrain model
+        run: python -m src.models.train
+
+      - name: Upload retrained model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrained-model-${{ github.run_id }}
+          path: models/
+
+      # In a real deployment, this is where you'd open a PR with the new
+      # model version, push to a model registry, or trigger a deployment
+      # pipeline — left as a clear extension point rather than faked.
+      - name: Notify (placeholder)
+        run: echo "Drift threshold exceeded — model retrained. Wire this step to your deployment process."

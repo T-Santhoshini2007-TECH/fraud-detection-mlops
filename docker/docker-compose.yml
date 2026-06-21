@@ -1,0 +1,63 @@
+version: "3.9"
+
+# Brings up the entire system with one command:
+#   docker compose up --build
+#
+# Services:
+#   trainer    -> runs once, trains the model, writes artifacts to ./models
+#   api        -> FastAPI serving layer, depends on trainer finishing
+#   dashboard  -> Streamlit monitoring dashboard, depends on trainer finishing
+#   mlflow     -> MLflow tracking UI, view experiment history at :5000
+#
+# Try it:
+#   API docs:        http://localhost:8000/docs
+#   Dashboard:        http://localhost:8501
+#   MLflow UI:        http://localhost:5000
+
+services:
+  trainer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.train
+    volumes:
+      - ../models:/app/models
+      - ../data:/app/data
+      - ../mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=file:/app/mlruns
+
+  mlflow:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ../mlruns:/app/mlruns
+    ports:
+      - "5000:5000"
+    command: >
+      bash -c "pip install --no-cache-dir mlflow &&
+               mlflow server --backend-store-uri file:/app/mlruns
+               --host 0.0.0.0 --port 5000"
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../models:/app/models
+    depends_on:
+      trainer:
+        condition: service_completed_successfully
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../models:/app/models
+    depends_on:
+      trainer:
+        condition: service_completed_successfully
