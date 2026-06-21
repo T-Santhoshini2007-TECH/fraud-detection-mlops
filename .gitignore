@@ -13,15 +13,15 @@ venv/
 .venv/
 env/
 
-# Data — real dataset is large and should not be committed;
-# synthetic fallback is generated on the fly.
+# Data - real Kaggle dataset is large (~150MB) and should not be
+# committed; synthetic fallback is generated on the fly if missing.
 data/raw/creditcard.csv
-data/processed/*.csv
 
-# Model artifacts — regenerate via `python -m src.models.train`
-# (kept out of git so the repo stays lightweight; CI regenerates them)
-models/*.joblib
-models/*.csv
+# Note: model artifacts (models/*.joblib) and the generated CSVs
+# (models/test_stream.csv, data/processed/train_baseline.csv) are
+# intentionally NOT ignored - they're committed so the deployed demo
+# and dashboard work immediately without requiring training first.
+# Re-run python -m src.models.train any time to regenerate them.
 
 # MLflow
 mlruns/
