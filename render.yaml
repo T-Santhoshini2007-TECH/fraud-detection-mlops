@@ -2,13 +2,13 @@
 # pointing at this repo. Creates both the API and the dashboard as
 # free-tier web services.
 #
-# IMPORTANT: Render's free tier builds from a Dockerfile but the model
-# must exist at build time (Render doesn't run docker-compose's trainer
-# step). Either:
-#   (a) commit models/*.joblib to the repo (small files, fine for a demo), or
-#   (b) add a build-time training step in render's build command below.
-# This blueprint uses option (b) so the repo doesn't need binary artifacts
-# committed.
+# This blueprint assumes models/*.joblib and the processed CSVs are
+# already committed to the repo (see .gitignore) — so the deployed
+# containers can load them directly without a training step at deploy
+# time. Free-tier Render doesn't support preDeployCommand, so this is
+# also the only option for free-tier deployment, not just the easiest.
+# Re-run `python -m src.models.train` locally and push if you want to
+# update the deployed model.
 
 services:
   - type: web
@@ -20,8 +20,6 @@ services:
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
-    buildCommand: "" # training happens via preDeployCommand below
-    preDeployCommand: "python -m src.models.train"
     healthCheckPath: /health
 
   - type: web
@@ -33,4 +31,3 @@ services:
     envVars:
       - key: PYTHONUNBUFFERED
         value: "1"
-    preDeployCommand: "python -m src.models.train"
